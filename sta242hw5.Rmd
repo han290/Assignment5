@@ -1,0 +1,165 @@
+```
+title: Appendix 
+
+```
+
+```{r}
+
+matchIdx = function(filename,numIdx){#the file contain three columns 'medallion', 'hack_license' and 'pickup_datatime'
+  
+  nrows = system(sprintf('wc -l %s', paste(filename, collapse = ' ')), intern = TRUE)
+  
+  idx = sample(nrows,numIdx)
+  
+  idx = sort(idx)
+  
+  write.table(idx,'matchidx.txt',quote = FALSE,row.names = FALSE,col.names = FALSE)
+}
+
+# USE SEHLL cat matchidx.txt | ./sample datamatch.txt > tripdata.txt
+
+# USE SEHLL cat matchidx.txt | ./sample farematch.txt > tripfare.txt
+
+match_test = function(tripdata,tripfare){
+  
+  data = data.table:::fread(tripdata,header = FALSE)
+  
+  fare = data.table:::fread(tripfare,header = FALSE)
+  
+  if ( any(data$V1 != fare$V1) | any(data$V2 != fare$V2) | any(data$V3 != data$V3) ){
+    
+    
+    print('trip_data and trip_fare are not matched')
+    
+  } else {
+    
+    print('trip_data and trip_fare are matched')
+    
+  }
+  
+}
+
+
+
+
+
+
+```
+
+
+
+1.First method in problem 1
+```{r}
+g = function(filename){
+   t = fread(filename,header = FALSE)#numeric
+   
+   q = quantile(t$V1,prob = seq(0,1,0.1))
+   
+   q 
+  }
+
+```
+
+2.Second method in problem 1
+```{r}
+
+getTable = function(){
+
+f = list.files("/home/data/NYCTaxis", pattern = "fare.*\\.csv$", full.names = TRUE)
+
+cl = makeCluster(12, 'FORK')
+
+els = clusterSplit(cl, f)
+
+wc = clusterApply(cl,els,function(x) table(as.numeric(system(sprintf("awk -F ',' 'FNR > 1 { print $11 - $10 }' %s", paste(x, collapse = ' ')),intern = TRUE))))
+
+stopCluster(cl)
+
+wc = unlist(wc)
+
+nrows = max(cumsum(wc))
+
+wc = tapply(as.numeric(wc), factor(names(wc)),sum)# nerge tables
+
+name = as.numeric(names(wc))
+
+j = match(name, sort(name))
+
+wc = wc[j]
+
+idx = c(seq(from = 1,to = nrows,by = nrows/10),nrows)
+
+quant = vector(mode = 'numeric', length = 10)
+
+for(i in 1:10){
+  
+  quant[i] = wc[ max(cumsum(cumsum(wc) <= idx[i])) ]
+  
+}
+
+names(quant) = c('0%','10%','20%','30%','40%','50%','60%','70%','80%','90%','100%')
+
+quant
+}
+
+
+```
+
+
+
+2.Simple linear
+```{r}
+l = function(x){
+
+x = data.table:::fread('finallytime.txt',header = FALSE)
+
+y = data.table:::fread('finallydiff.txt',header = FALSE)
+
+con = cov(x$V1,y$V1)
+
+d = sd(x$V1)
+
+beta1 = con/(d^2)
+
+x_bar = mean(x$V1)
+
+y_bar = mean(y$V1)
+
+beta0 = y_bar - beta1*x_bar
+
+c(beta0,beta1)
+
+y_fit = beta0 + beta1*x
+
+MSE = sum((y-y_fit)^2)/173176144
+
+list(coefficent = c(beta0,beta1), MSE = MSE, residual = y - y_fit)
+}
+```
+
+
+3.multiple Regression
+```{r}
+function(){
+
+  x = read.big.matrix('nominus.txt', sep = '\t') # nominus.txt has surcharge, triptime,and #totallesstoll.
+
+beta = solve(t(x[,1:2])%*%x[,1:2])%*%t(x[,1:2])%*%x[,3]
+
+intercept = mean(x[,3]) - beta[1]*mean(x[,1]) - beta[2]*mean(x[,2])
+
+beta0 = intercept
+
+beta1 = beta[1]
+
+beta2 = beta[2]
+
+y_fit = beta0 + beta1*x[,1] + beta2*x[,2]
+
+residual = x[,3] - y_fit
+
+MSE = sum((x[,3]-y_fit)^2)/173176144
+
+list(coefficent = c(beta0,beta1,beta2), MSE = MSE, residual = residual)
+
+}
